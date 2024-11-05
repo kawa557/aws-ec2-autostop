@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create a Lambda functions that stop EC2 instances tagged with [shutdown:true] at 20:00 JST daily.
+
+Resources:
+  MyLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: 2012-10-17
+        Statement: 
+          - Effect: Allow
+            Principal: 
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies: 
+        - PolicyName: AllowLambdaToStopEC2
+          PolicyDocument: 
+            Version: 2012-10-17
+            Statement: 
+              - Effect: Allow
+                Action: 
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - ec2:DescribeInstances
+                  - ec2:StopInstances
+                Resource: "*"
+
+  StopEC2Function:
+    Type: AWS::Lambda::Function
+    Properties: 
+      Handler: stop_ec2.handler
+      Role: !GetAtt MyLambdaExecutionRole.Arn
+      Code: ./src/stop_ec2.py
+      Runtime: python3.12
+      Timeout: 300
+
+  StopEC2Rule:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: 'cron(0 11 * * ? *)'  # JST 20:00 is UTC 11:00
+      Targets:
+        - Arn: !GetAtt StopEC2Function.Arn
+          Id: StopEC2FunctionTarget
+
+  PermissionForEC2EventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref StopEC2Function
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
