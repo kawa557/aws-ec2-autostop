@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  StopEC2LambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: 'stop_ec2.lambda_handler'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+
+          def lambda_handler(event, context):
+              ec2 = boto3.client('ec2')
+              # 全インスタンスを取得
+              instances = ec2.describe_instances()
+              instance_ids = []
+
+              for reservation in instances['Reservations']:
+                  for instance in reservation['Instances']:
+                      # タグを確認
+                      tags = {tag['Key']: tag['Value'] for tag in instance.get('Tags', [])}
+                      if tags.get('auto_shutdown') == 'true':
+                          instance_ids.append(instance['InstanceId'])
+              
+              if instance_ids:
+                  ec2.stop_instances(InstanceIds=instance_ids)
+                  print(f'Stopped your instances: {instance_ids}')
+              else:
+                  print('No instances to stop')
+      Runtime: 'python3.8'
+      Timeout: 30
+
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: 'EC2StopPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'ec2:StopInstances'
+                  - 'ec2:DescribeInstances'
+                Resource: '*'
+
+  StopEC2EventRule:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      ScheduleExpression: 'cron(0 23 * * ? *)'  # JST 8時はUTC 23時
+      Targets:
+        - Arn: !GetAtt StopEC2LambdaFunction.Arn
+          Id: 'StopEC2LambdaFunctionTarget'
+
+  PermissionForEventsToInvokeLambda:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref StopEC2LambdaFunction
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt StopEC2EventRule.Arn
