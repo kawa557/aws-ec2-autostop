@@ -5,7 +5,7 @@
 ## 構成
 
 - `template.yaml`
-  - CloudFormationテンプレート。Lambda機能、IAMロール、CloudWatchイベントルールを定義し、スケジュールに基づいてLambdaを定期実行します。
+  - CloudFormationテンプレート。Lambda機能、IAMロール、イベントルールを定義し、スケジュールに基づいてLambdaを定期実行します。
   - ParametersのScheduleExpressionで指定したcron式に従ってEC2を停止します。
     - cronで指定する時間はUTCです。
     - 例えばJST20時を指定する場合は"cron(0 11 * * ? *)" となります。
