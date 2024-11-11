@@ -1,20 +1,16 @@
 # AWS Lambda EC2 Shutdown
 
-このプロジェクトは、AWSのLambda関数を使用して、タグ `[shutdown:true]` が付与されたEC2インスタンスを毎日日本時間の20時に停止するためのCloudFormationテンプレートとPythonコードです。
+このプロジェクトは、AWSのLambda関数を使用して、タグ `[shutdown:true]` が付与されたEC2インスタンスを毎日指定の時間に停止するためのCloudFormationテンプレートとPythonコードです。
 
 ## 構成
 
 - `template.yaml`
   - CloudFormationテンプレート。Lambda機能、IAMロール、CloudWatchイベントルールを定義し、スケジュールに基づいてLambdaを定期実行します。
-- `stop_ec2.py`
+  - ParametersのScheduleExpressionで指定したcron式に従ってEC2を停止します。
+    - cronで指定する時間はUTCです。
+    - 例えばJST20時を指定する場合は"cron(0 11 * * ? *)" となります。
+- `src/stop_ec2.py`
   - タグ `[shutdown:true]` が付与されたEC2インスタンスの停止を行うLambda関数のPythonコード。
-
-## 必須要件
-
-- AWSアカウント
-- AWS CLI
-- Python
-- boto3ライブラリ（AWS SDK for Python）
 
 ## デプロイ手順
 
@@ -23,5 +19,10 @@ aws cloudformation package \
   --template-file template.yaml \
   --s3-bucket cf-templates-1jcq9sx4g1nyh-ap-northeast-1 \
   --output-template-file packaged-template.yaml
-2. テンプレートを展開する
-aws cloudformation deploy --stack-name Autostop-EC2-stack --template-file packaged-template.yaml --capabilities CAPABILITY_NAMED_IAM 
+
+2. テンプレートを展開する ※日本時間20時に停止する場合
+aws cloudformation deploy \
+  --stack-name Autostop-EC2-stack \
+  --template-file packaged-template.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides ScheduleExpression="cron(0 11 * * ? *)"
