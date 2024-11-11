@@ -15,14 +15,17 @@
 ## デプロイ手順
 
 1. テンプレートファイルをパッケージ化する
+```
 aws cloudformation package \
   --template-file template.yaml \
-  --s3-bucket cf-templates-1jcq9sx4g1nyh-ap-northeast-1 \
+  --s3-bucket ${artifacts保管用バケット名} \
   --output-template-file packaged-template.yaml
-
+```
 2. テンプレートを展開する ※日本時間20時に停止する場合
+```
 aws cloudformation deploy \
   --stack-name Autostop-EC2-stack \
   --template-file packaged-template.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides ScheduleExpression="cron(0 11 * * ? *)"
+  ```
